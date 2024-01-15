@@ -1,0 +1,8 @@
+riotwatcher==3.2.5
+pandas
+sqlalchemy==1.4.50
+pyspark==3.5.0
+apache-airflow-providers-google
+psycopg2-binary
+pyarrow
+glom
