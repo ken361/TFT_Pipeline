@@ -10,8 +10,6 @@ from pandas import json_normalize
 from google.cloud import storage
 from urllib.request import urlopen
 
-#from airflow.providers.google.cloud.hooks.gcs import GCSHook
-
 REGION = 'NA1'
 
 def get_current_patch() -> str:
@@ -75,7 +73,8 @@ def upload_match_details(
         queue_id = match['info']['queue_id']
         game_version = match['info']['game_version']
         pattern = r"(\d+\.\d+)"
-        patch = re.search(pattern, game_version) + '.1'
+        patch_match = re.search(pattern, game_version)
+        patch = patch_match.group(1) + '.1' if patch_match else None
 
         # Filtering for queue_id == 1100 as it is the queue_id for ranked TFT
         if queue_id == 1100 and patch == curr_patch:
