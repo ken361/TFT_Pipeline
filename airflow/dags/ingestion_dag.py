@@ -27,14 +27,14 @@ def ingestion_dag():
     def upload_matches_to_gcs(curr_patch: str):
         """ 
         A task to upload match details to GCS.
-        This task first sends many requests to the Riot API to get the match 
-        details for grandmaster+ ranked players in North America. 
-        It then directly uploads information for each match to GCS.
+        This task first fetches match summary information for grandmaster+ 
+        ranked players in North America. It then directly uploads the info 
+        for each match to GCS (in parquet format).
         """
         api = configure_api()
         summoner_ids = get_summonerIds(api)
         puuids = get_puuids(api, summoner_ids)
-        all_matches = get_matches(api, puuids)
+        all_matches = get_unique_match_ids(api, puuids)
         fetch_and_upload_match_details(api, all_matches, curr_patch, BUCKET)
 
     curr_patch = check_patch()
