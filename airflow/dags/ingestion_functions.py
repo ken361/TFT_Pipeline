@@ -54,29 +54,39 @@ def get_matches(tft_watcher: TftWatcher, puuids: list) -> list:
                  for match in tft_watcher.match.by_puuid(REGION, puuid)}
     return list(match_ids)
 
-# def get_match_details(tft_watcher: TftWatcher, match_ids: list) -> list:
-#     matches = [tft_watcher.match.by_id(REGION, match_id) for match_id in match_ids]
-#     # Filtering for queue_id == 1100 as it is the queue_id for ranked TFT
-#     return [match for match in matches if match['info']['queue_id'] == 1100]
 
-def upload_match_to_gcs(match: dict, bucket: str, file_name: str) -> None:
+def get_patch_of_match(match: dict) -> str:
+    game_version = match['info']['game_version']
+    pattern = r"(\d+\.\d+)"
+    patch_match = re.search(pattern, game_version)
+    patch = patch_match.group(1) + '.1' if patch_match else None
+    return patch
+
+def parquetize_match(match: dict) -> pa.Table:
+    """ Converts a match dictionary into a PyArrow table """
+    df = json_normalize(match)
+    table = pa.Table.from_pandas(df)
+    return table
+
+def upload_match_to_gcs(match: pa.Table, bucket: str, file_name: str) -> None:
     client = storage.Client()
     bucket = client.get_bucket(bucket)
     blob = bucket.blob(file_name)
-    blob.upload_from_string(json.dumps(match), 'application/json')
 
-def upload_match_details(
+    with blob.open('wb') as f:
+        pq.write_table(match, f)
+
+def fetch_and_upload_match_details(
     tft_watcher: TftWatcher, match_ids: list, curr_patch:str, bucket: str
 ) -> None:
     for match_id in match_ids:
+        # Get match details
         match = tft_watcher.match.by_id(REGION, match_id)
         queue_id = match['info']['queue_id']
-        game_version = match['info']['game_version']
-        pattern = r"(\d+\.\d+)"
-        patch_match = re.search(pattern, game_version)
-        patch = patch_match.group(1) + '.1' if patch_match else None
+        patch = get_patch_of_match(match)
 
         # Filtering for queue_id == 1100 as it is the queue_id for ranked TFT
         if queue_id == 1100 and patch == curr_patch:
-            file_name = f'{match_id}.json'
-            upload_match_to_gcs(match, bucket, file_name)
+            match_pq = parquetize_match(match)
+            file_name = f'{match_id}.parquet'
+            upload_match_to_gcs(match_pq, bucket, file_name)

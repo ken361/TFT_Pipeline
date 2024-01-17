@@ -35,7 +35,7 @@ def ingestion_dag():
         summoner_ids = get_summonerIds(api)
         puuids = get_puuids(api, summoner_ids)
         all_matches = get_matches(api, puuids)
-        upload_match_details(api, all_matches, curr_patch, BUCKET)
+        fetch_and_upload_match_details(api, all_matches, curr_patch, BUCKET)
 
     curr_patch = check_patch()
     upload_matches_to_gcs(curr_patch=curr_patch)
