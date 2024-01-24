@@ -13,6 +13,11 @@ CLUSTER_NAME = 'tftpipeline-spark-cluster'
 CLUSTER_REGION = 'northamerica-northeast2'
 PYSPARK_FILE = 'spark_all_matches.py'
 
+BQ_DATASET = 'tft_matches_all'
+BQ_TABLE = 'tft_matches'
+TFT_UNIT_TABLE = 'tft_unit_rarity'
+JOB_ARGS = [PROJECT_ID, BQ_DATASET, BQ_TABLE, TFT_UNIT_TABLE, BUCKET]
+
 CLUSTER_CONFIG = {
     'master_config': {
         'num_instances': 1,
@@ -61,6 +66,15 @@ def ingestion_dag():
         trigger_rule='all_success'
     )
 
+    submit_spark_job_task = DataprocSubmitPySparkJobOperator(
+        task_id = "submit_dataproc_spark_job_task",
+        main = f"gs://{BUCKET}/{PYSPARK_FILE}",
+        arguments = JOB_ARGS,
+        cluster_name = CLUSTER_NAME,
+        region = CLUSTER_REGION,
+        dataproc_jars = ["gs://spark-lib/bigquery/spark-3.1-bigquery-0.27.0-preview.jar"]
+    )
+
     delete_dataproc_cluster_task = DataprocDeleteClusterOperator(
         task_id='delete_dataproc_cluster_task',
         project_id=PROJECT_ID,
@@ -71,6 +85,6 @@ def ingestion_dag():
 
     check_patch_task = check_patch()
     upload_matches_task = upload_matches_to_gcs(curr_patch=check_patch_task)
-    check_patch_task >> upload_matches_task >> create_dataproc_cluster_task >> delete_dataproc_cluster_task
+    check_patch_task >> upload_matches_task >> create_dataproc_cluster_task >> submit_spark_job_task >> delete_dataproc_cluster_task
 
 dag = ingestion_dag()

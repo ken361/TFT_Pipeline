@@ -86,7 +86,7 @@ def get_patch_of_match(match: dict) -> str:
 
 
 def fetch_and_upload_match_details(
-    tft_watcher: TftWatcher, match_ids: list, curr_patch:str, bucket: str
+    tft_watcher: TftWatcher, match_ids: list, curr_patch: str, bucket: str
 ) -> None:
     for match_id in match_ids:
         # Get match details (match end-state summary information)
