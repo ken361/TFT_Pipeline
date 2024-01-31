@@ -14,9 +14,19 @@ CLUSTER_REGION = 'northamerica-northeast2'
 PYSPARK_FILE = 'spark_all_matches.py'
 
 BQ_DATASET = 'tft_matches_all'
-BQ_TABLE = 'tft_matches'
-TFT_UNIT_TABLE = 'tft_unit_rarity'
-JOB_ARGS = [PROJECT_ID, BQ_DATASET, BQ_TABLE, TFT_UNIT_TABLE, BUCKET]
+UNITS_ALL_TABLE = 'units_played_all'
+UNIT_RARITY_TABLE = 'unit_rarity'
+TRAITS_TABLE = 'traits_played_all'
+AUGMENTS_TABLE = 'augments_played_all'
+JOB_ARGS = [
+    PROJECT_ID,
+    BQ_DATASET,
+    UNITS_ALL_TABLE,
+    UNIT_RARITY_TABLE,
+    TRAITS_TABLE,
+    AUGMENTS_TABLE,
+    BUCKET
+]
 
 CLUSTER_CONFIG = {
     'master_config': {

@@ -1,25 +1,24 @@
 import sys
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, DataFrame
 from pyspark.conf import SparkConf
 from pyspark import SparkContext
 from pyspark.sql import functions as F
-from pyspark.sql.functions import col, expr, regexp_replace
-from pyspark.sql.types import StringType, ArrayType
+from functools import reduce
 
 
 def remove_leading_text_string(input):
-    return expr(f"substring_index({input}, '_', -1)")
+    return F.expr(f"substring_index({input}, '_', -1)")
 
 def remove_leading_text_array(input):
-    return expr(f"transform({input}, x -> substring_index(x, '_', -1))")
+    return F.expr(f"transform({input}, x -> substring_index(x, '_', -1))")
     
 def remove_leading_text_nested(input):
     nested_expr = f"transform({input}, x -> {remove_leading_text_array('x')})"
-    return expr(nested_expr)
+    return F.expr(nested_expr)
 
 def remove_tft_item_prefix(df, column_name):
     remove_prefix_udf = (
-        expr(
+        F.expr(
             "transform({}, arr -> transform(arr, item -> "
             "substring_index(item, '_', -1)"
             "))".format(column_name)
@@ -30,7 +29,7 @@ def remove_tft_item_prefix(df, column_name):
 
 def convert_to_title_case(df, column_name):
     title_case_udf = (
-        expr(
+        F.expr(
             "transform({}, arr -> transform(arr, item -> "
             "regexp_replace(item, '([a-z0-9])([A-Z])', '$1 $2')"
             "))".format(column_name)
@@ -40,11 +39,13 @@ def convert_to_title_case(df, column_name):
     return df
 
 
-GCP_PROJECT_ID = sys.argv[1]
-BQ_DATASET     = sys.argv[2]
-BQ_TABLE       = sys.argv[3]
-TFT_UNIT_TABLE = sys.argv[4]
-BUCKET         = sys.argv[5]
+GCP_PROJECT_ID    = sys.argv[1]
+BQ_DATASET        = sys.argv[2]
+UNITS_ALL_TABLE   = sys.argv[3]
+UNIT_RARITY_TABLE = sys.argv[4]
+TRAITS_TABLE      = sys.argv[5]
+AUGMENTS_TABLE    = sys.argv[6]
+BUCKET            = sys.argv[7]
 
 def main():
 
@@ -61,15 +62,14 @@ def main():
 
     df_raw = (
         spark.read.option('mergeSchema', 'true')
-        .parquet(f'gs://{BUCKET}/*')
+        .parquet(f'gs://{BUCKET}/*.parquet')
     )
 
 
     df_list = []
-
     for i in range(8):
-        metadata_col = col('`metadata.match_id`')
-        participant_col = col('`info.participants`')
+        metadata_col = F.col('`metadata.match_id`')
+        participant_col = F.col('`info.participants`')
 
         df_i = df_raw.select(
             metadata_col.alias('match_id'),
@@ -100,16 +100,7 @@ def main():
         )
         df_list.append(df_i)
 
-    df_all_matches = df_list[0]
-    for df_i in df_list[1:]:
-        df_all_matches = df_all_matches.union(df_i)
-
-
-    df_unit_rarity = df_all_matches \
-        .select('unit_name', 'unit_rarity') \
-        .distinct()
-
-    df_all_matches = df_all_matches.drop('unit_rarity')
+    df_all_matches = reduce(DataFrame.union, df_list)
 
 
     list_fields_to_transform = ['augments', 'trait_names', 'unit_name']
@@ -126,15 +117,54 @@ def main():
         df_all_matches = convert_to_title_case(df_all_matches, field)
 
 
-    df_all_matches.write \
+    # Unit/champion rarity table
+    df_champ_rarity = df_all_matches \
+        .select('unit_name', 'unit_rarity') \
+        .distinct()
+
+    # Trait table
+    df_trait = df_all_matches \
+        .select('match_id', 'placement', 'trait_names', 'trait_styles')
+
+    # Augment table
+    df_augment = df_all_matches \
+        .select('match_id', 'placement', 'augments')
+
+    # Unit/champion table
+    df_champs_all = (
+        df_all_matches
+        .withColumn('unit', F.arrays_zip('unit_name', 'unit_tier', 'unit_items')) \
+        .withColumn('unit', F.explode('unit')) \
+        .select('match_id', 
+                'placement', 
+                F.col('unit.unit_name').alias('unit_name'),
+                F.col('unit.unit_tier').alias('unit_tier'),
+                F.col('unit.unit_items').alias('unit_items')
+            )
+    )
+
+
+    df_champs_all.write \
     .format('bigquery') \
-    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{BQ_TABLE}') \
+    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNITS_ALL_TABLE}') \
     .mode("overwrite") \
     .save()
 
-    df_unit_rarity.write \
+    df_trait.write \
     .format('bigquery') \
-    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{TFT_UNIT_TABLE}') \
+    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{TRAITS_TABLE}') \
+    .mode("overwrite") \
+    .save()
+
+    df_augment.write \
+    .format('bigquery') \
+    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{AUGMENTS_TABLE}') \
+    .mode("overwrite") \
+    .save()
+
+    df_champ_rarity.write \
+    .format('bigquery') \
+    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNIT_RARITY_TABLE}') \
     .mode("overwrite") \
     .save()
 
