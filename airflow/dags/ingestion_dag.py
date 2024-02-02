@@ -11,12 +11,13 @@ from airflow.providers.google.cloud.operators.dataproc import (
 PROJECT_ID = os.getenv('GCP_PROJECT_ID')
 BUCKET = os.getenv('GCP_GCS_BUCKET')
 BUCKET_SUBDIR = 'pq'
+TEMP_BUCKET = os.getenv('GCP_GCS_TEMP_BUCKET')
+BQ_DATASET = os.getenv('GCP_BQ_DATASET')
 
 CLUSTER_NAME = 'tftpipeline-spark-cluster'
 CLUSTER_REGION = 'northamerica-northeast2'
 PYSPARK_FILE = 'spark_all_matches.py'
 
-BQ_DATASET = 'tft_matches_all'
 UNITS_ALL_TABLE = 'units_played_all'
 UNIT_RARITY_TABLE = 'unit_rarity'
 TRAITS_TABLE = 'traits_played_all'
@@ -29,7 +30,8 @@ JOB_ARGS = [
     TRAITS_TABLE,
     AUGMENTS_TABLE,
     BUCKET,
-    BUCKET_SUBDIR
+    BUCKET_SUBDIR,
+    TEMP_BUCKET
 ]
 
 CLUSTER_CONFIG = {

@@ -76,6 +76,7 @@ x-airflow-common:
     GCP_PROJECT_ID: "${GCP_PROJECT_ID}"
     GCP_GCS_BUCKET: "${GCP_GCS_BUCKET}"
     GCP_BQ_DATASET: "${GCP_BQ_DATASET}"
+    GCP_GCS_TEMP_BUCKET: "${GCP_GCS_TEMP_BUCKET}"
     API_KEY: "${API_KEY}"
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
