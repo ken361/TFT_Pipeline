@@ -2,12 +2,15 @@ from datetime import datetime, timedelta
 from ingestion_functions import *
 
 from airflow.decorators import dag, task
-from airflow.providers.google.operators.dataproc import DataprocCreateClusterOperator
-from airflow.providers.google.operators.dataproc import DataprocDeleteClusterOperator
-from airflow.providers.google.operators.dataproc import DataprocSubmitPySparkJobOperator
+from airflow.providers.google.cloud.operators.dataproc import (
+    DataprocCreateClusterOperator,
+    DataprocDeleteClusterOperator,
+    DataprocSubmitPySparkJobOperator,
+)
 
 PROJECT_ID = os.getenv('GCP_PROJECT_ID')
 BUCKET = os.getenv('GCP_GCS_BUCKET')
+BUCKET_SUBDIR = 'pq'
 
 CLUSTER_NAME = 'tftpipeline-spark-cluster'
 CLUSTER_REGION = 'northamerica-northeast2'
@@ -25,19 +28,20 @@ JOB_ARGS = [
     UNIT_RARITY_TABLE,
     TRAITS_TABLE,
     AUGMENTS_TABLE,
-    BUCKET
+    BUCKET,
+    BUCKET_SUBDIR
 ]
 
 CLUSTER_CONFIG = {
     'master_config': {
         'num_instances': 1,
         'machine_type_uri': 'n1-standard-2',
-        'disk_config': {'boot_disk_type': 'pd-standard', 'boot_disk_size_gb': 50},
+        'disk_config': {'boot_disk_type': 'pd-standard', 'boot_disk_size_gb': 32},
     },
     'worker_config': {
         'num_instances': 2,
         'machine_type_uri': 'n1-standard-2',
-        'disk_config': {'boot_disk_type': 'pd-standard', 'boot_disk_size_gb': 50},
+        'disk_config': {'boot_disk_type': 'pd-standard', 'boot_disk_size_gb': 32},
     },
 }
 
@@ -65,7 +69,13 @@ def ingestion_dag():
         summoner_ids = get_summonerIds(api)
         puuids = get_puuids(api, summoner_ids)
         all_matches = get_unique_match_ids(api, puuids)
-        fetch_and_upload_match_details(api, all_matches, curr_patch, BUCKET)
+        fetch_and_upload_match_details(
+            api, 
+            all_matches, 
+            curr_patch, 
+            BUCKET, 
+            BUCKET_SUBDIR
+        )
 
     create_dataproc_cluster_task = DataprocCreateClusterOperator(
         task_id='create_dataproc_cluster_task',
