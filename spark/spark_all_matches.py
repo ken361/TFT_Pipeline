@@ -46,6 +46,8 @@ UNIT_RARITY_TABLE = sys.argv[4]
 TRAITS_TABLE      = sys.argv[5]
 AUGMENTS_TABLE    = sys.argv[6]
 BUCKET            = sys.argv[7]
+BUCKET_SUBDIR     = sys.argv[8]
+TEMP_BUCKET       = sys.argv[9]
 
 def main():
 
@@ -62,7 +64,7 @@ def main():
 
     df_raw = (
         spark.read.option('mergeSchema', 'true')
-        .parquet(f'gs://{BUCKET}/*.parquet')
+        .parquet(f'gs://{BUCKET}/{BUCKET_SUBDIR}/*.parquet')
     )
 
 
@@ -117,11 +119,6 @@ def main():
         df_all_matches = convert_to_title_case(df_all_matches, field)
 
 
-    # Unit/champion rarity table
-    df_champ_rarity = df_all_matches \
-        .select('unit_name', 'unit_rarity') \
-        .distinct()
-
     # Trait table
     df_trait = df_all_matches \
         .select('match_id', 'placement', 'trait_names', 'trait_styles')
@@ -133,38 +130,53 @@ def main():
     # Unit/champion table
     df_champs_all = (
         df_all_matches
-        .withColumn('unit', F.arrays_zip('unit_name', 'unit_tier', 'unit_items')) \
+        .withColumn(
+            'unit', 
+            F.arrays_zip('unit_name', 'unit_tier', 'unit_rarity', 'unit_items')
+        ) \
         .withColumn('unit', F.explode('unit')) \
         .select('match_id', 
                 'placement', 
                 F.col('unit.unit_name').alias('unit_name'),
                 F.col('unit.unit_tier').alias('unit_tier'),
+                F.col('unit.unit_rarity').alias('unit_rarity'),
                 F.col('unit.unit_items').alias('unit_items')
-            )
+        )
     )
+
+    # Unit/champion rarity table
+    df_champ_rarity = df_champs_all \
+        .select('unit_name', 'unit_rarity') \
+        .distinct()
+    
+    df_champs_all = df_champs_all.drop('unit_rarity')
 
 
     df_champs_all.write \
     .format('bigquery') \
     .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNITS_ALL_TABLE}') \
+    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
     .mode("overwrite") \
     .save()
 
     df_trait.write \
     .format('bigquery') \
     .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{TRAITS_TABLE}') \
+    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
     .mode("overwrite") \
     .save()
 
     df_augment.write \
     .format('bigquery') \
     .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{AUGMENTS_TABLE}') \
+    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
     .mode("overwrite") \
     .save()
 
     df_champ_rarity.write \
     .format('bigquery') \
     .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNIT_RARITY_TABLE}') \
+    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
     .mode("overwrite") \
     .save()
 
