@@ -1,0 +1,6 @@
+version: 2
+
+models:
+  - name: int_champs_played_all
+  - name: int_traits_all
+  - name: int_champ_items
