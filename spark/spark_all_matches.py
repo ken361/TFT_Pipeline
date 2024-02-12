@@ -27,7 +27,7 @@ def remove_tft_item_prefix(df, column_name):
     df = df.withColumn(column_name, remove_prefix_udf)
     return df
 
-def convert_to_title_case(df, column_name):
+def convert_items_to_title_case(df, column_name):
     title_case_udf = (
         F.expr(
             "transform({}, arr -> transform(arr, item -> "
@@ -37,6 +37,14 @@ def convert_to_title_case(df, column_name):
     )
     df = df.withColumn(column_name, title_case_udf)
     return df
+
+def convert_str_to_title_case(input):
+    title_case_udf = F.expr(
+        f"transform({input}, x -> "
+        "regexp_replace(x, '([a-z])([0-9])|([0-9])([a-z])|([a-z])([A-Z])'"
+        ", '$1$3$5 $2$4$6'))"
+    )
+    return title_case_udf
 
 
 GCP_PROJECT_ID    = sys.argv[1]
@@ -112,11 +120,12 @@ def main():
         df_all_matches = df_all_matches \
             .withColumnRenamed(field, f'{field}_raw') \
             .withColumn(field, remove_leading_text_array(f'{field}_raw')) \
+            .withColumn(field, convert_str_to_title_case(f'{field}_raw')) \
             .drop(f'{field}_raw')
 
     for field in nested_fields_to_transform:
         df_all_matches = remove_tft_item_prefix(df_all_matches, field)
-        df_all_matches = convert_to_title_case(df_all_matches, field)
+        df_all_matches = convert_items_to_title_case(df_all_matches, field)
 
 
     # Trait table
