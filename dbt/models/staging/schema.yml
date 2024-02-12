@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: staging
+    database: tftpipeline
+    schema: tft_matches_all
+
+    tables:
+      - name: augments_played_all
+      - name: traits_played_all
+      - name: unit_rarity
+      - name: units_played_all
+
+models:
+  - name: champs_played_all
+  - name: traits_played_all
+  - name: augments_played_all
+  - name: champ_costs
