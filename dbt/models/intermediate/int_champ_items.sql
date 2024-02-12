@@ -27,7 +27,3 @@ select champion, item, equip_count, round(avg_placement, 2) as avg_placement
 from ranking_cte
 where
     rank in (1, 2, 3) and equip_count > 3
-
-    /* Maybe just remove avg_placement, or just filter for avg < 6 or smth earlier*/
-    /* Maybe also just use this as the finalized item table*/
-    

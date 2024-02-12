@@ -17,6 +17,3 @@ inner join {{ ref("champ_costs") }} costs on stats.champion.name = costs.champ_n
 group by champion, cost
 order by
     avg_placement
-
-    /* Check if the top_4_pct figures average out to 50%, and if the top_1_pct averages out to 12.5*/
-    

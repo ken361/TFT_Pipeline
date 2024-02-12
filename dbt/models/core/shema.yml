@@ -4,3 +4,4 @@ models:
   - name: augment_stats
   - name: champ_stats
   - name: trait_stats
+  
