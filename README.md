@@ -23,7 +23,7 @@ The data is ingested from [Riot Games' developer API](https://developer.riotgame
 * [**Airflow**](https://airflow.apache.org/) - Workflow Orchestration
 * [**Spark (PySpark)**](https://spark.apache.org/) - Data Processing & Transformation
 * [**dbt**](https://www.getdbt.com/) - Data Transformation
-* **TBD** - Data Visualization
+* [**Looker Studio**](https://lookerstudio.google.com/) - Data Visualization
 
 ## Architecture Diagram
 <p align="center">
