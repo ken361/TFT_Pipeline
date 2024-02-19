@@ -4,3 +4,6 @@ models:
   - name: int_champs_played_all
   - name: int_traits_all
   - name: int_champ_items
+  - name: int_item_id_to_name
+  - name: int_augments_played_all
+  - name: int_trait_augment_combinations

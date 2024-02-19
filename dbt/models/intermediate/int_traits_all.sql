@@ -1,15 +1,17 @@
 {{ config(materialized="view", schema="intermediate") }}
 
 with
-    traits_name_data as (
+    traits_id_data as (
         select match_id, placement, trait_names.element as trait, ofst
-        from {{ ref("traits_played_all") }}, unnest(trait_names.list) as trait_names
+        from
+            {{ ref("traits_played_all") }} main, unnest(trait_names.list) as trait_names
         with
         offset as ofst
     ),
     traits_style_data as (
         select match_id, placement, trait_styles.element as style, ofst
-        from {{ ref("traits_played_all") }}, unnest(trait_styles.list) as trait_styles
+        from 
+            {{ ref("traits_played_all") }}, unnest(trait_styles.list) as trait_styles
         with
         offset as ofst
     )
@@ -17,7 +19,7 @@ with
 select
     a.match_id,
     a.placement,
-    a.trait,
+    c.name as trait,
     case
         when b.style = 0
         then 'No style'
@@ -44,6 +46,10 @@ select
         then concat(a.trait, '4')
         else a.trait
     end as trait_with_style
-from traits_name_data a
+from traits_id_data a
 inner join
-    traits_style_data b on a.match_id = b.match_id and a.placement = b.placement and a.ofst = b.ofst
+    traits_style_data b
+    on a.match_id = b.match_id
+    and a.placement = b.placement
+    and a.ofst = b.ofst
+inner join {{ ref("trait_id_to_name") }} c on a.trait = c.id

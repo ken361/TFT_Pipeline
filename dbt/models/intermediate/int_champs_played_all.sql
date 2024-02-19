@@ -1,6 +1,22 @@
 {{ config(materialized="view", schema="intermediate") }}
 
 select
+    main.match_id, 
+    main.placement, 
+    name.name as champion,
+    name.id as champ_id,
+    max(main.champ_tier) as tier,
+from {{ ref("champs_played_all") }} main
+inner join {{ ref("champ_id_to_name") }} name on main.champ_id = name.id
+group by
+    match_id,
+    placement,
+    champion,
+    champ_id
+
+-- No longer require item data with champion data in the same table
+/*
+select
     match_id,
     placement,
     struct(
@@ -15,3 +31,5 @@ group by
     placement,
     champ_name,
     champ_tier
+*/
+    

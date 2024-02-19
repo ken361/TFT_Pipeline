@@ -10,9 +10,17 @@ sources:
       - name: traits_played_all
       - name: unit_rarity
       - name: units_played_all
+      - name: item_id_to_name
+      - name: champ_id_to_name
+      - name: augment_id_to_name
+      - name: trait_id_to_name
 
 models:
   - name: champs_played_all
   - name: traits_played_all
   - name: augments_played_all
   - name: champ_costs
+  - name: item_id_to_name
+  - name: champ_id_to_name
+  - name: augment_id_to_name
+  - name: trait_id_to_name

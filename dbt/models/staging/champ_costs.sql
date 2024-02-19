@@ -1,13 +1,7 @@
 {{ config(materialized="view", schema="staging") }}
 
 select
-    case
-        when unit_name = 'Akali'
-        then 'K/DA Akali'
-        when unit_name = 'TrueDamage'
-        then 'True Damage Akali'
-        else unit_name
-    end as champ_name,
+    unit_name as champ_id,
     case
         when unit_rarity.unit_rarity = 0
         then 1

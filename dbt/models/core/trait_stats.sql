@@ -9,7 +9,7 @@ select
         2
     ) as top_4_pct,
     round(
-        sum(case when placement < 2 then 1 else 0 end) / count(trait_with_style) * 100,
+        sum(case when placement = 1 then 1 else 0 end) / count(trait_with_style) * 100,
         2
     ) as top_1_pct,
     count(trait_with_style) as times_played
