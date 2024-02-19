@@ -29,3 +29,5 @@ The data is ingested from [Riot Games' developer API](https://developer.riotgame
 <p align="center">
 <img src="https://media.discordapp.net/attachments/690048481557217353/1203192380417646614/My_First_Board_-_Frame_1.jpg?ex=65d03339&is=65bdbe39&hm=e84592a95b8583d5fd5c548227508e63134bf317694441bec0e328c30379fd56&=&format=webp&width=1440&height=512" width="932" height="331">
 </p>
+
+[**Link to Dashboard (In Progress)**](https://lookerstudio.google.com/reporting/239efc03-642a-48f0-bef1-494fa8c0851a)
