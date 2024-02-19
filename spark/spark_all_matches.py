@@ -1,42 +1,14 @@
 import sys
+from datetime import datetime
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.conf import SparkConf
 from pyspark import SparkContext
 from pyspark.sql import functions as F
 from functools import reduce
 
-
-def remove_leading_text_string(input):
-    return F.expr(f"substring_index({input}, '_', -1)")
-
-def remove_leading_text_array(input):
-    return F.expr(f"transform({input}, x -> substring_index(x, '_', -1))")
-    
-def remove_leading_text_nested(input):
-    nested_expr = f"transform({input}, x -> {remove_leading_text_array('x')})"
-    return F.expr(nested_expr)
-
-def remove_tft_item_prefix(df, column_name):
-    remove_prefix_udf = (
-        F.expr(
-            "transform({}, arr -> transform(arr, item -> "
-            "substring_index(item, '_', -1)"
-            "))".format(column_name)
-            )
-        )
-    df = df.withColumn(column_name, remove_prefix_udf)
-    return df
-
-def convert_to_title_case(df, column_name):
-    title_case_udf = (
-        F.expr(
-            "transform({}, arr -> transform(arr, item -> "
-            "regexp_replace(item, '([a-z0-9])([A-Z])', '$1 $2')"
-            "))".format(column_name)
-            )
-    )
-    df = df.withColumn(column_name, title_case_udf)
-    return df
+#  Quite a few of the functions in this file have been removed due to a
+#  change in implementation of the pipeline. At the bottom of this file
+#  is an example of a function that was used, and the usage of such functions.
 
 
 GCP_PROJECT_ID    = sys.argv[1]
@@ -62,9 +34,13 @@ def main():
         .getOrCreate()
 
 
+    current_date = datetime.now().strftime("%y%m%d")
+    file_path = f'gs://{BUCKET}/{BUCKET_SUBDIR}/*-{current_date}.parquet'
     df_raw = (
-        spark.read.option('mergeSchema', 'true')
-        .parquet(f'gs://{BUCKET}/{BUCKET_SUBDIR}/*.parquet')
+        spark.read.parquet(file_path)
+        .withColumn(
+            "`info.game_length`", F.col("`info.game_length`").cast("double")
+        )
     )
 
 
@@ -104,21 +80,6 @@ def main():
 
     df_all_matches = reduce(DataFrame.union, df_list)
 
-
-    list_fields_to_transform = ['augments', 'trait_names', 'unit_name']
-    nested_fields_to_transform = ['unit_items']
-
-    for field in list_fields_to_transform:
-        df_all_matches = df_all_matches \
-            .withColumnRenamed(field, f'{field}_raw') \
-            .withColumn(field, remove_leading_text_array(f'{field}_raw')) \
-            .drop(f'{field}_raw')
-
-    for field in nested_fields_to_transform:
-        df_all_matches = remove_tft_item_prefix(df_all_matches, field)
-        df_all_matches = convert_to_title_case(df_all_matches, field)
-
-
     # Trait table
     df_trait = df_all_matches \
         .select('match_id', 'placement', 'trait_names', 'trait_styles')
@@ -148,38 +109,55 @@ def main():
     df_champ_rarity = df_champs_all \
         .select('unit_name', 'unit_rarity') \
         .distinct()
-    
-    df_champs_all = df_champs_all.drop('unit_rarity')
 
 
-    df_champs_all.write \
-    .format('bigquery') \
-    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNITS_ALL_TABLE}') \
-    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
-    .mode("overwrite") \
-    .save()
+    # Write to BigQuery
+    write_options = {
+        'format': 'com.google.cloud.spark.bigquery.BigQueryRelationProvider',
+        'temporaryGcsBucket': TEMP_BUCKET,
+        'createDisposition': 'CREATE_IF_NEEDED'
+    }
 
-    df_trait.write \
-    .format('bigquery') \
-    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{TRAITS_TABLE}') \
-    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
-    .mode("overwrite") \
-    .save()
+    df_champs_all.drop('unit_rarity').write.mode('append').options(
+        **write_options, 
+        table=f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNITS_ALL_TABLE}'
+    ).save()
 
-    df_augment.write \
-    .format('bigquery') \
-    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{AUGMENTS_TABLE}') \
-    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
-    .mode("overwrite") \
-    .save()
+    df_trait.write.mode('append').options(
+        **write_options, 
+        table=f'{GCP_PROJECT_ID}.{BQ_DATASET}.{TRAITS_TABLE}'
+    ).save()
 
-    df_champ_rarity.write \
-    .format('bigquery') \
-    .option('table', f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNIT_RARITY_TABLE}') \
-    .option('temporaryGcsBucket', f'{TEMP_BUCKET}') \
-    .mode("overwrite") \
-    .save()
+    df_augment.write.mode('append').options(
+        **write_options, 
+        table=f'{GCP_PROJECT_ID}.{BQ_DATASET}.{AUGMENTS_TABLE}'
+    ).save()
+
+    df_champ_rarity.write.mode('overwrite').options(
+        **write_options, 
+        table=f'{GCP_PROJECT_ID}.{BQ_DATASET}.{UNIT_RARITY_TABLE}'
+    ).save()
 
 
 if __name__ == "__main__":
     main()
+
+# def convert_str_to_title_case(input):
+#     title_case_udf = F.expr(
+#         f"transform({input}, x -> "
+#         "regexp_replace(x, '([a-z])([0-9])|([0-9])([a-z])|([a-z])([A-Z])'"
+#         ", '$1$3$5 $2$4$6'))"
+#     )
+#     return title_case_udf
+
+
+# for field in list_fields_to_transform:
+#     df_all_matches = df_all_matches \
+#         .withColumnRenamed(field, f'{field}_raw') \
+#         .withColumn(field, remove_leading_text_array(f'{field}_raw')) \
+#         .withColumn(field, convert_str_to_title_case(f'{field}_raw')) \
+#         .drop(f'{field}_raw')
+
+# for field in nested_fields_to_transform:
+#     df_all_matches = remove_tft_item_prefix(df_all_matches, field)
+#     df_all_matches = convert_items_to_title_case(df_all_matches, field)
